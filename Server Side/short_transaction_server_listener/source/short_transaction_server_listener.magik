@@ -1,0 +1,189 @@
+
+# S a d e q    A r a m i d e h
+
+
+remex(:short_transaction_server_listener)
+$
+
+def_slotted_exemplar(:short_transaction_server_listener,
+						{
+							{:command,_unset,:writable}, #{Command , message"}
+							{:conn,_unset ,:writable}
+						})
+$
+
+short_transaction_server_listener.define_shared_constant ( :port, 3041 , _false )
+$
+
+short_transaction_server_listener.define_shared_constant ( :client_listener_port, 3031 , _false )
+$
+
+
+_method short_transaction_server_listener.new()
+	>>_clone.init()
+_endmethod
+$
+
+_method short_transaction_server_listener.init()
+	>>_self 
+_endmethod
+$
+		
+
+_method short_transaction_server_listener.start_listening()
+	
+	
+	.conn << tcpip_connection_stream.new( 
+				_self.port, 
+				:input_class, external_text_input_stream, 
+				:output_class, external_binary_output_stream)
+	
+		
+	_local myself << _self
+	
+	_local a_proc <<
+				    _proc @listener(myself)
+					    myself.int!run()
+				    _endproc		 
+	
+	heavy_thread.new_general(
+				 a_proc ( myself ) ,
+				 :priority, _thisthread.vm_priority-1)
+									 
+_endmethod
+$
+
+_method short_transaction_server_listener.int!run()
+	
+	write("Listener Started...")
+	
+	c << 0
+	_loop
+		data << .conn.get()
+		# Proccessing data
+		
+		.command << rope.new()
+		_loop 
+			str << data.input.get_line()
+			write("data...str..:",str)
+			_if str _is _unset _orif str = "" _orif str.size = 0 _then _leave _endif
+			.command.add(str) 
+		_endloop
+		_if .command[1].default("").uppercase = "COMMAND_1" 
+		_then
+			# command_1 processing
+			_local command << "SERVER_COMMAND_1"
+			_self.broadcast_message_to_clients( command ,"hi back!" )
+		#_elif .command[1].default("").uppercase = "COMMAND_2"
+		#_then 	
+		_else
+			write("Unrecognized Command ")
+		_endif 	
+
+	_endloop 	
+_endmethod
+$
+	
+_method short_transaction_server_listener.broadcast_message_to_clients( command , data )
+	
+	_global epd_data
+	_if epd_data _is _unset 
+	_then 
+		epd_data << hash_table.new()
+	_endif 
+	
+	_if (server << epd_data[:server]) _is _unset 
+	_then 
+		write(" server is unset ,can not continue ")
+		_return 
+	_endif 
+	
+	write("getting clients...")
+	clients << _self.get_clients()
+	
+	write("no of clients:",clients.size)
+	
+	_self.start_broadcasting_command_to( clients ,command , data )	
+	
+	
+_endmethod 
+$
+
+_method short_transaction_server_listener.get_clients ()
+	
+	result << hash_table.new()
+	
+	_global epd_data
+	_if epd_data _is _unset 
+	_then 
+		epd_data << hash_table.new()
+	_endif 
+	
+	_if (epd_data[:server]) _is _unset 
+	_then 
+		write(" server is unset ,can not continue ")
+		_return 
+	_endif 
+	
+	_for a_key _over epd_data[:server].clients.keys.fast_elements()
+	_loop 
+		a_client <<  epd_data[:server].clients[a_key].client_details
+		
+    	# a_client => "Aramideh@gis-server(169.254.72.82)<18104>#1" 
+    	a_client_vec << a_client.to_digit_vector()
+    	ip_start_ind <<  a_client_vec.index_of(40) # ( = 40
+    	ip_end_ind <<  a_client_vec.index_of(41) # ) = 41
+    	ip << a_client.subseq0( ip_start_ind ,ip_end_ind-ip_start_ind-1 )
+    	
+    	pc_name << a_client.subseq0( a_client_vec.index_of(64) ,ip_start_ind-a_client_vec.index_of(64)-1 ) # @ = 64 
+    	user_name << a_client.subseq0( 0 , a_client_vec.index_of(64) -1 ) # @ = 64
+    	
+		result[ip.as_symbol()] << { pc_name , user_name }
+		
+	_endloop 
+	
+	
+	_return result
+	
+_endmethod 
+$
+
+
+_method short_transaction_server_listener.start_broadcasting_command_to ( clients , command ,data )
+	_global epd_data
+	_if epd_data _is _unset 
+	_then 
+		epd_data << hash_table.new()
+	_endif 
+	_if (server << epd_data[:server]) _is _unset 
+	_then 
+		write(" server is unset ,can not continue ")
+		_return 
+	_endif 
+	
+	_local ip_bv
+	
+	_for a_key _over clients.keys.fast_elements()
+	_loop 
+		ip_bv << byte_vector.ip_as_byte_vector_from_string( a_key.write_string)
+		write("broadcasting...to ",a_key.write_string , %tab , clients[a_key][1],%tab,ip_bv ,%tab ,"command:",command ,%tab,"data:",data)
+		epd_data[:server].call_client( clients[a_key][1] , { command ,data } , _self.client_listener_port , ip_bv )
+	_endloop 	
+	
+_endmethod 
+$
+
+_method short_transaction_server_listener.start()
+	_global epd_data
+	_if epd_data _is _unset 
+	_then 
+		epd_data << hash_table.new()
+	_endif
+	 
+	_global sw_listener 
+	sw_listener << short_transaction_server_listener.new()
+	sw_listener.start_listening()
+	epd_data[:listener] << sw_listener
+	_return sw_listener	
+_endmethod
+$

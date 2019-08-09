@@ -1,0 +1,54 @@
+_global call_dsst_server <<
+_proc @call_dsst_server (  server_pc_name, data_rope_string , port , _optional server_ip )
+
+	# Aramideh
+	# test call_dsst_server ( server pc name , {"COMMAND_1","hi"} , 3041 )
+	
+	crlf << byte_vector.new_with(13,10)
+
+	tc << text_converter.new(:cp1256, _true)
+	_try 
+		_if server_ip _is _unset 
+		_then 
+			remote << system.get_host_by_name( server_pc_name )[1]
+		_else 
+			remote << server_ip
+		_endif 	
+	_when error
+		write("Remote Host Not found : ",server_pc_name," Ignoring....")
+		_return
+	_endtry 
+
+	_try 
+		conn << tcpip_connection.new(remote, port, :input_class,
+		external_binary_input_stream, :output_class,
+		external_binary_output_stream)
+	_when error
+		write("Unable to stablish a TCP/IP Connection : ",remote)
+	_endtry
+	_if conn _is _unset _then _return _endif 
+	_protect
+	out << conn.output
+	_for data_string _over data_rope_string.fast_elements()
+	_loop 
+		out.put_vector(tc.translate(data_string))
+		out.put_vector(crlf)
+	_endloop  
+	out.flush()
+	
+	# get the response
+	ts << text_converter.new(:cp1256, _false)
+	_if data_rope_string[1].uppercase = "VERSION?"
+	_then  
+		inconn << conn.input
+		result << inconn.get_n(1000)
+		write("result :",result)
+	_endif
+	_if conn _isnt _unset _andif conn.responds_to?(:|close()|) _then 	conn.close() _endif 
+	_protection
+		_if conn _isnt _unset _andif conn.responds_to?(:|close()|) _then 	conn.close() _endif
+	_endprotect
+	
+	_return _unset
+_endproc
+$

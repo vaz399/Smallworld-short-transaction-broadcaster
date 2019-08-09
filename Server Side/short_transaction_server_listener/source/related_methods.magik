@@ -1,0 +1,125 @@
+
+# Sadeq Aramideh
+
+_method dsst_server.call_client( remote_url, data_rope_string ,port , _optional client_ip)
+	
+	crlf << byte_vector.new_with(13,10)
+
+	tc << text_converter.new(:cp1256, _true)
+	_try 
+		_if client_ip _is _unset 
+		_then 
+			remote << system.get_host_by_name(remote_url)[1]
+		_else 
+			remote << client_ip
+		_endif 	
+	_when error
+		write("Remote Host Not found : ",remote_url," Ignoring....")
+		_return
+	_endtry 
+
+	_try 
+		conn << tcpip_connection.new(remote, port, :input_class,
+		external_binary_input_stream, :output_class,
+		external_binary_output_stream)
+	_when error
+		write("Unable to stablish a TCP/IP Connection : ",remote)
+	_endtry
+	_if conn _is _unset _then _return _endif 
+	_protect
+	out << conn.output
+	_for data_string _over data_rope_string.fast_elements()
+	_loop 
+		out.put_vector(tc.translate(data_string))
+		out.put_vector(crlf)
+	_endloop  
+	out.flush()
+	
+	# get the response
+	ts << text_converter.new(:cp1256, _false)
+	_if data_rope_string[1].uppercase = "VERSION?"
+	_then  
+		inconn << conn.input
+		result << inconn.get_n(1000)
+		write("result :",result)
+	_endif
+	_if conn _isnt _unset _andif conn.responds_to?(:|close()|) _then 	conn.close() _endif 
+	_protection
+		_if conn _isnt _unset _andif conn.responds_to?(:|close()|) _then 	conn.close() _endif
+	_endprotect
+	
+	_return _unset
+_endmethod
+$
+
+
+_method char16_vector.to_digit_vector(_optional write?)
+	vec << simple_vector.new(_self.size)
+	_for i _over 1.upto(_self.size)
+	_loop 
+		vec[i] << _self[i].value
+	_endloop 
+	_if write? _isnt _unset _andif write? _is _true 
+	_then 
+		str << "{"
+		_for i _over 1.upto(_self.size)
+		_loop 
+			str << str + vec[i].write_string+","
+		_endloop 
+		str[str.size] << %}
+		write(str)
+	_endif 
+	_return vec 
+_endmethod
+$
+
+
+
+#_method smallworld_product.start_st_server_listener()
+#	short_transaction_server_listener.start()
+#_endmethod
+#$
+
+_method smallworld_product.start_server( a_ds_view_name ,port  )
+	# start st connection
+	
+	_global epd_data
+	_if epd_data _is _unset 
+	_then 
+		epd_data << hash_table.new()
+	_endif 
+	
+	#epd_data[:server] << dsst_server.new( gis_program_manager.cached_dataset( a_ds_view_name ), 3040 ).start()
+	epd_data[:server] << dsst_server.new( gis_program_manager.cached_dataset( a_ds_view_name ), port ).start()
+	
+	_try 
+		#epd_data[:listener] << start_listener()
+	_when error
+	_endtry  
+	
+_endmethod 
+$
+
+
+
+_method byte_vector.ip_as_byte_vector_from_string(a_string  , _optional  sep_char)
+	# Aramideh
+
+	result << byte_vector.new (4)
+	_if sep_char _is _unset 
+	_then 
+		sep_char << %.
+	_endif 	
+	
+	str << a_string.split_by ( sep_char )
+	ind << 0
+	_for a_str _over str.fast_elements()
+	_loop 
+		ind+<<1
+		result[ind] << a_str.as_number()
+	_endloop 
+	
+	_return result	
+	
+_endmethod 
+$

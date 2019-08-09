@@ -1,0 +1,132 @@
+
+# S a d e q    A r a m i d e h
+
+
+remex(:short_transaction_client_listener)
+$
+
+def_slotted_exemplar(:short_transaction_client_listener,
+						{
+							{:command,_unset,:writable}, #{Command , message"}
+							{:conn,_unset ,:writable}
+						},
+						:engine_model
+						)
+$
+
+short_transaction_client_listener.define_shared_constant ( :port, 3031 , _false )
+$
+
+short_transaction_client_listener.define_shared_constant ( :server_short_transaction_port, 3041 , _false )
+$
+
+# YOU SHOULD CHANGE THIS
+short_transaction_client_listener.define_shared_constant ( :server_name, "SERVER_NAME" , _false )
+$
+
+
+
+_method short_transaction_client_listener.new() 
+	>>_clone.init()
+_endmethod
+$
+
+_method short_transaction_client_listener.init()
+	>>_self 
+_endmethod
+$
+		
+
+_method short_transaction_client_listener.start_listening()
+	
+  	_global thread
+   	_self.run_engine(thread.high_background_priority,
+    			 :int!run|()|)
+				 										 
+_endmethod
+$
+
+_method short_transaction_client_listener.int!run()
+	
+	
+	.conn << tcpip_connection_stream.new( 
+				_self.port, 
+				:input_class, external_text_input_stream, 
+				:output_class, external_binary_output_stream)
+	
+			
+	
+	write("Listener Started...")
+	
+	c << 0
+	_loop
+	
+#      action << _catch @interrupt
+#               _endcatch
+#     _if action = "restart"
+#     _then _continue
+#     _else _return
+#     _endif
+
+	
+		data << .conn.get()
+		# Proccessing data
+		
+		.command << rope.new()
+		_loop 
+			str << data.input.get_line()
+			_if str _is _unset _orif str = "" _orif str.size = 0 _then _leave _endif
+			.command.add(str) 
+		_endloop
+		_if .command[1].default("").uppercase = "SERVER_COMMAND_1" 
+		_then
+			write("Command :SERVER_COMMAND_1 received from server...")
+			_self.do_something()
+			
+		_else
+			write("Unrecognized Command ")
+		_endif 	
+		
+		.conn.flush()
+		
+	_endloop 	
+_endmethod
+$
+
+_method short_transaction_client_listener.do_something()
+	write("doing something!......")
+_endmethod 
+$
+
+_method short_transaction_client_listener.call_server( a_command , data , _optional server_ip)
+
+	
+	#call_dsst_server( _self.server_name , {"COMMAND_1", data } , _self.server_short_transaction_port , ip_bv )
+	_if server_ip _isnt _unset 
+	_then 
+		call_dsst_server( _self.server_name , { a_command , data } , _self.server_short_transaction_port , server_ip )
+	_else 
+		call_dsst_server( _self.server_name , { a_command , data } , _self.server_short_transaction_port )
+	_endif 	
+	
+	
+_endmethod 
+$
+
+
+_method short_transaction_client_listener.start()
+	_global epd_data
+	_if epd_data _is _unset 
+	_then 
+		epd_data << hash_table.new()
+	_endif
+	 
+	l << short_transaction_client_listener.new()
+	l.start_listening()
+	epd_data[:listener] << l
+	_return l	
+_endmethod
+$
+
+
+
