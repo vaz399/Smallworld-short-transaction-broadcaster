@@ -47,3 +47,7 @@ and immediatly in the clients cli you shoud see :
 ```
 
 
+### Authors
+
+* [**Sadeq Aramideh**](https://github.com/Aramideh)
+
