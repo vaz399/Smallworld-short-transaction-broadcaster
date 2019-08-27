@@ -78,6 +78,9 @@ _method short_transaction_client_listener.int!run()
 			_if str _is _unset _orif str = "" _orif str.size = 0 _then _leave _endif
 			.command.add(str) 
 		_endloop
+		
+		_if .command.size = 0 _then _continue _endif 
+		
 		_if .command[1].default("").uppercase = "SERVER_COMMAND_1" 
 		_then
 			write("Command :SERVER_COMMAND_1 received from server...")
